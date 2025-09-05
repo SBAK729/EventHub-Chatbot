@@ -1,2 +1,3 @@
 .env
 eventhub.egg-info/*
+__pycache__/
