@@ -1,22 +1,29 @@
-from sentence_transformers import SentenceTransformer
-import chromadb
+
+import logging
 from datetime import datetime, timedelta
 import re
-import logging
-from typing import List, Dict, Optional
+import numpy as np
+from sentence_transformers import SentenceTransformer
+import chromadb
 
+# -----------------------------
+# Logging
+# -----------------------------
 logger = logging.getLogger(__name__)
 
 # -----------------------------
-# Initialize model and database
+# Initialize model
 # -----------------------------
 try:
     model = SentenceTransformer('all-MiniLM-L6-v2')
-    logger.info("Model loaded successfully")
+    logger.info("SentenceTransformer model loaded successfully")
 except Exception as e:
     logger.error(f"Error loading model: {e}")
     raise
 
+# -----------------------------
+# Initialize ChromaDB
+# -----------------------------
 try:
     chroma_client = chromadb.Client()
     collection = chroma_client.create_collection(name="event_content")
@@ -30,94 +37,164 @@ except Exception as e:
 # -----------------------------
 events = [
     {
-        "id": "1",
+        "_id": "1",
         "title": "Tech Conference 2023",
         "description": "Annual technology conference featuring talks on AI, machine learning, and software development. Join industry leaders for three days of innovation.",
-        "category": "Technology",
-        "date": "2023-11-15",
+        "tags": ["technology", "AI", "machine learning", "software", "conference"],
         "location": "San Francisco, CA",
-        "tags": ["technology", "AI", "machine learning", "software", "conference"]
+        "createdAt": "2023-08-01T00:00:00",
+        "imageUrl": "https://example.com/event1.jpg",
+        "startDateTime": "2023-11-15T09:00:00",
+        "endDateTime": "2023-11-15T17:00:00",
+        "price": "TBD",
+        "isFree": False,
+        "url": "https://example.com/events/1",
+        "category": {"_id": "c1", "name": "Technology"},
+        "organizer": {"_id": "o1", "firstName": "John", "lastName": "Doe"}
     },
     {
-        "id": "2",
+        "_id": "2",
         "title": "Jazz Festival",
         "description": "Weekend jazz festival with performances from world-renowned artists. Food and drinks available throughout the event.",
-        "category": "Music",
-        "date": "2023-09-22",
+        "tags": ["music", "jazz", "festival", "live performance", "food"],
         "location": "New York, NY",
-        "tags": ["music", "jazz", "festival", "live performance", "food"]
+        "createdAt": "2023-08-02T00:00:00",
+        "imageUrl": "https://example.com/event2.jpg",
+        "startDateTime": "2023-09-22T10:00:00",
+        "endDateTime": "2023-09-22T22:00:00",
+        "price": "50",
+        "isFree": False,
+        "url": "https://example.com/events/2",
+        "category": {"_id": "c2", "name": "Music"},
+        "organizer": {"_id": "o2", "firstName": "Alice", "lastName": "Smith"}
     },
     {
-        "id": "3",
+        "_id": "3",
         "title": "Startup Pitch Competition",
         "description": "Watch promising startups pitch their ideas to a panel of investors. Great opportunity for networking with entrepreneurs.",
-        "category": "Business",
-        "date": "2023-10-05",
+        "tags": ["business", "startup", "pitching", "investors", "networking"],
         "location": "Austin, TX",
-        "tags": ["business", "startup", "pitching", "investors", "networking"]
+        "createdAt": "2023-08-03T00:00:00",
+        "imageUrl": "https://example.com/event3.jpg",
+        "startDateTime": "2023-10-05T14:00:00",
+        "endDateTime": "2023-10-05T18:00:00",
+        "price": "0",
+        "isFree": True,
+        "url": "https://example.com/events/3",
+        "category": {"_id": "c3", "name": "Business"},
+        "organizer": {"_id": "o3", "firstName": "Bob", "lastName": "Johnson"}
     },
     {
-        "id": "4",
+        "_id": "4",
         "title": "Marathon for Charity",
         "description": "Annual marathon raising funds for children's hospitals. All fitness levels welcome with 5K, 10K, and full marathon options.",
-        "category": "Sports",
-        "date": "2023-10-28",
+        "tags": ["sports", "marathon", "charity", "fitness", "running"],
         "location": "Chicago, IL",
-        "tags": ["sports", "marathon", "charity", "fitness", "running"]
+        "createdAt": "2023-08-04T00:00:00",
+        "imageUrl": "https://example.com/event4.jpg",
+        "startDateTime": "2023-10-28T07:00:00",
+        "endDateTime": "2023-10-28T13:00:00",
+        "price": "25",
+        "isFree": False,
+        "url": "https://example.com/events/4",
+        "category": {"_id": "c4", "name": "Sports"},
+        "organizer": {"_id": "o4", "firstName": "Sarah", "lastName": "Lee"}
     },
     {
-        "id": "5",
+        "_id": "5",
         "title": "Digital Marketing Workshop",
         "description": "Hands-on workshop teaching the latest digital marketing strategies, SEO techniques, and social media advertising.",
-        "category": "Education",
-        "date": "2023-09-30",
+        "tags": ["education", "marketing", "SEO", "social media", "workshop"],
         "location": "Online Event",
-        "tags": ["education", "marketing", "SEO", "social media", "workshop"]
+        "createdAt": "2023-08-05T00:00:00",
+        "imageUrl": "https://example.com/event5.jpg",
+        "startDateTime": "2023-09-30T09:00:00",
+        "endDateTime": "2023-09-30T16:00:00",
+        "price": "0",
+        "isFree": True,
+        "url": "https://example.com/events/5",
+        "category": {"_id": "c5", "name": "Education"},
+        "organizer": {"_id": "o5", "firstName": "David", "lastName": "Kim"}
     },
     {
-        "id": "6",
+        "_id": "6",
         "title": "Food & Wine Festival",
         "description": "Sample gourmet foods and fine wines from top chefs and vineyards. Cooking demonstrations and tasting sessions throughout the day.",
-        "category": "Food & Drink",
-        "date": "2023-11-10",
+        "tags": ["food", "wine", "festival", "cooking", "tasting"],
         "location": "Napa Valley, CA",
-        "tags": ["food", "wine", "festival", "cooking", "tasting"]
+        "createdAt": "2023-08-06T00:00:00",
+        "imageUrl": "https://example.com/event6.jpg",
+        "startDateTime": "2023-11-10T11:00:00",
+        "endDateTime": "2023-11-10T20:00:00",
+        "price": "75",
+        "isFree": False,
+        "url": "https://example.com/events/6",
+        "category": {"_id": "c6", "name": "Food & Drink"},
+        "organizer": {"_id": "o6", "firstName": "Emma", "lastName": "Williams"}
     },
     {
-        "id": "7",
+        "_id": "7",
         "title": "VR Gaming Expo",
         "description": "Experience the latest in virtual reality gaming technology. Try new games, meet developers, and participate in tournaments.",
-        "category": "Gaming",
-        "date": "2023-10-14",
+        "tags": ["gaming", "VR", "virtual reality", "expo", "tournaments"],
         "location": "Los Angeles, CA",
-        "tags": ["gaming", "VR", "virtual reality", "expo", "tournaments"]
+        "createdAt": "2023-08-07T00:00:00",
+        "imageUrl": "https://example.com/event7.jpg",
+        "startDateTime": "2023-10-14T10:00:00",
+        "endDateTime": "2023-10-14T18:00:00",
+        "price": "30",
+        "isFree": False,
+        "url": "https://example.com/events/7",
+        "category": {"_id": "c7", "name": "Gaming"},
+        "organizer": {"_id": "o7", "firstName": "Liam", "lastName": "Brown"}
     },
     {
-        "id": "8",
+        "_id": "8",
         "title": "Yoga & Wellness Retreat",
         "description": "Weekend retreat focusing on yoga, meditation, and holistic wellness practices. Suitable for all experience levels.",
-        "category": "Health & Wellness",
-        "date": "2023-11-05",
+        "tags": ["health", "wellness", "yoga", "meditation", "retreat"],
         "location": "Sedona, AZ",
-        "tags": ["health", "wellness", "yoga", "meditation", "retreat"]
+        "createdAt": "2023-08-08T00:00:00",
+        "imageUrl": "https://example.com/event8.jpg",
+        "startDateTime": "2023-11-05T08:00:00",
+        "endDateTime": "2023-11-05T17:00:00",
+        "price": "100",
+        "isFree": False,
+        "url": "https://example.com/events/8",
+        "category": {"_id": "c8", "name": "Health & Wellness"},
+        "organizer": {"_id": "o8", "firstName": "Sophia", "lastName": "Martinez"}
     },
     {
-        "id": "9",
+        "_id": "9",
         "title": "Tech Meetup: AI Applications",
         "description": "Monthly meetup discussing practical applications of artificial intelligence in various industries. Networking session included.",
-        "category": "Technology",
-        "date": "2023-10-12",
+        "tags": ["technology", "AI", "meetup", "networking", "applications"],
         "location": "San Francisco, CA",
-        "tags": ["technology", "AI", "meetup", "networking", "applications"]
+        "createdAt": "2023-08-09T00:00:00",
+        "imageUrl": "https://example.com/event9.jpg",
+        "startDateTime": "2023-10-12T18:00:00",
+        "endDateTime": "2023-10-12T21:00:00",
+        "price": "0",
+        "isFree": True,
+        "url": "https://example.com/events/9",
+        "category": {"_id": "c9", "name": "Technology"},
+        "organizer": {"_id": "o9", "firstName": "Olivia", "lastName": "Davis"}
     },
     {
-        "id": "10",
+        "_id": "10",
         "title": "Blockchain Conference",
         "description": "Exploring the future of blockchain technology, cryptocurrencies, and decentralized applications. Features industry experts.",
-        "category": "Technology",
-        "date": "2023-11-20",
+        "tags": ["technology", "blockchain", "crypto", "conference", "decentralized"],
         "location": "Austin, TX",
-        "tags": ["technology", "blockchain", "crypto", "conference", "decentralized"]
+        "createdAt": "2023-08-10T00:00:00",
+        "imageUrl": "https://example.com/event10.jpg",
+        "startDateTime": "2023-11-20T09:00:00",
+        "endDateTime": "2023-11-20T17:00:00",
+        "price": "120",
+        "isFree": False,
+        "url": "https://example.com/events/10",
+        "category": {"_id": "c10", "name": "Technology"},
+        "organizer": {"_id": "o10", "firstName": "James", "lastName": "Miller"}
     }
 ]
 
@@ -129,17 +206,38 @@ metadatas = []
 ids = []
 
 for event in events:
-    search_text = f"{event['title']}. {event['description']}. Category: {event['category']}. Location: {event['location']}. Date: {event['date']}. Tags: {', '.join(event['tags'])}"
+    search_text = (
+        f"Title: {event['title']}. "
+        f"Description: {event.get('description', '')}. "
+        f"Category: {event.get('category', {}).get('name', '')}. "
+        f"Location: {event.get('location', '')}. "
+        f"Tags: {', '.join(event.get('tags', []))}. "
+        f"Organizer: {event.get('organizer', {}).get('firstName', '')} {event.get('organizer', {}).get('lastName', '')}. "
+        f"Start: {event.get('startDateTime', '')}. "
+        f"End: {event.get('endDateTime', '')}. "
+        f"Price: {event.get('price', '')}. "
+        f"Free: {'Yes' if event.get('isFree', False) else 'No'}. "
+        f"URL: {event.get('url', '')}"
+    )
     documents.append(search_text)
+
     metadatas.append({
-        "title": event["title"],
-        "description": event["description"],
-        "category": event["category"],
-        "date": event["date"],
-        "location": event["location"],
-        "tags": ", ".join(event["tags"])  
+        "user_id": str(event.get("user_id", "global")),
+        "_id": str(event["_id"]),
+        "title": event.get("title", ""),
+        "location": event.get("location") or "",
+        "createdAt": event.get("createdAt") or "",
+        "imageUrl": event.get("imageUrl") or "",
+        "startDateTime": event.get("startDateTime") or "",
+        "endDateTime": event.get("endDateTime") or "",
+        "price": event.get("price") or "",
+        "isFree": event.get("isFree", False),
+        "category": event.get("category", {}).get("name", ""),
+        "organizer": f"{event.get('organizer', {}).get('firstName','')} {event.get('organizer', {}).get('lastName','')}".strip(),
+        "tags": ", ".join(event.get("tags", []))
     })
-    ids.append(event["id"])
+
+    ids.append(f"{event.get('user_id', 'global')}_{event['_id']}")
 
 try:
     embeddings = model.encode(documents).tolist()
@@ -155,15 +253,26 @@ except Exception as e:
     raise
 
 # -----------------------------
-# Search history
-# -----------------------------
-search_history: List[Dict] = []
-
-# -----------------------------
 # Helper: extract filters
 # -----------------------------
 def extract_filters_from_query(query: str):
     filters = {}
+
+    # Free / Paid
+    if "free" in query.lower():
+        filters["isFree"] = True
+        query = re.sub(r"\bfree\b", "", query, flags=re.IGNORECASE)
+    if "paid" in query.lower():
+        filters["isFree"] = False
+        query = re.sub(r"\bpaid\b", "", query, flags=re.IGNORECASE)
+
+    # Location detection
+    location_match = re.search(r"in\s+([A-Za-z\s]+)", query, re.IGNORECASE)
+    if location_match:
+        filters["location"] = location_match.group(1).strip().title()
+        query = re.sub(location_match.group(0), "", query, flags=re.IGNORECASE)
+
+    # Date detection
     today = datetime.now().date()
     date_patterns = {
         "today": today,
@@ -171,20 +280,13 @@ def extract_filters_from_query(query: str):
         "this weekend": today + timedelta(days=(5 - today.weekday()) % 7),
         "next week": today + timedelta(days=7),
     }
-
     for pattern, date_value in date_patterns.items():
         if pattern in query.lower():
             filters["date"] = date_value.strftime("%Y-%m-%d")
             query = re.sub(pattern, "", query, flags=re.IGNORECASE)
 
-    locations = ["san francisco", "new york", "austin", "chicago", "los angeles", 
-                 "napa valley", "sedona", "online"]
-    for location in locations:
-        if location in query.lower():
-            filters["location"] = location.title()
-            query = re.sub(location, "", query, flags=re.IGNORECASE)
-
-    categories = ["technology", "music", "business", "sports", "education", 
+    # Category detection
+    categories = ["technology", "music", "business", "sports", "education",
                   "food & drink", "gaming", "health & wellness"]
     for category in categories:
         if category in query.lower():
@@ -197,55 +299,78 @@ def extract_filters_from_query(query: str):
 # -----------------------------
 # Main search function
 # -----------------------------
-def perform_search(query: str, n_results: int = 10):
-    try:
-        # Store history
-        search_history.append({
-            "query": query,
-            "timestamp": datetime.now().isoformat()
-        })
+def perform_search(query: str, user_id: str):
+    n_results = 10
 
-        # Extract filters
+    try:
         processed_query, filters = extract_filters_from_query(query)
 
-        # Generate query embedding
-        query_embedding = model.encode([processed_query]).tolist()
+        # Ensure user_id filtering (global + user-specific)
+        user_or_filter = [{"user_id": "global"}, {"user_id": user_id}]
 
-        # Prepare ChromaDB filter
-        where_filter = {k: v for k, v in filters.items()} if filters else None
+        # Add other filters
+        other_filters = []
+        if "isFree" in filters:
+            other_filters.append({"isFree": filters["isFree"]})
+        if "location" in filters:
+            other_filters.append({"location": filters["location"]})
+        if "category" in filters:
+            other_filters.append({"category": filters["category"]})
+
+        # Combine everything under a single $and
+        where_filter = {
+            "$and": [
+                {"$or": user_or_filter},
+                *other_filters  # unpack other filters
+            ]
+        } if other_filters else {"$or": user_or_filter}
+
+
+        query_embedding = model.encode([processed_query]).tolist()
 
         results = collection.query(
             query_embeddings=query_embedding,
             n_results=n_results,
-            where=where_filter
+            where=where_filter,
+            include=['metadatas', 'documents', 'embeddings']
         )
 
-        formatted_results = []
-        if results['documents'] and len(results['documents']) > 0:
-            for i in range(len(results['documents'][0])):
-                metadata = results['metadatas'][0][i]
-                # convert tags back to array
-                tags = [tag.strip() for tag in metadata.get("tags", "").split(",")]
-                metadata["tags"] = tags
-                formatted_results.append({
-                    "id": results['ids'][0][i],
-                    "document": results['documents'][0][i],
-                    "metadata": metadata,
-                    "distance": results['distances'][0][i]
-                })
+        metadatas = results.get("metadatas", [[]])[0]
+        embeddings_list = results.get("embeddings", [[]])[0]
 
-        return {
-            "results": formatted_results,
-            "processed_query": processed_query,
-            "filters_applied": filters
-        }
+        if not metadatas:
+            return []
+
+        def cosine_similarity(a, b):
+            a, b = np.array(a), np.array(b)
+            return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+        scored_results = []
+        for idx, metadata in enumerate(metadatas):
+            score = cosine_similarity(query_embedding[0], embeddings_list[idx])
+            scored_results.append({"metadata": metadata, "cosine_score": score})
+
+        scored_results.sort(key=lambda x: x["cosine_score"], reverse=True)
+        return [r["metadata"] for r in scored_results]
 
     except Exception as e:
         logger.error(f"Search error: {e}")
         raise
 
-def get_search_history(limit: int = 10):
-    return search_history[-limit:]
-
+# -----------------------------
+# Return all events
+# -----------------------------
 def get_all_events():
+    #Get event data from api
+
+    # try:
+    #     response = requests.get(EVENTS_API_URL)
+    #     response.raise_for_status()
+    #     events = response.json()
+    #     logger.info(f"Fetched {len(events)} events from API")
+        # return events
+    # except Exception as e:
+    #     logger.error(f"Error fetching events: {e}")
+    #     events= []
+
     return events
