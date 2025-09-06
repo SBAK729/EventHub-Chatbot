@@ -1,15 +1,21 @@
-# app.py
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import uvicorn
 import logging
+from typing import List, Dict
+from components.search.search import perform_search, get_all_events
 
-# Import search functions
-from components.search.search import perform_search, get_search_history, get_all_events
-
+# -----------------------------
+# Logging
+# -----------------------------
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+# -----------------------------
+# FastAPI app
+# -----------------------------
 app = FastAPI(title="Semantic Event Search API")
 
 # -----------------------------
@@ -26,29 +32,25 @@ app.add_middleware(
 # -----------------------------
 # Models
 # -----------------------------
-from pydantic import BaseModel
-
 class SearchRequest(BaseModel):
     query: str
-    n_results: int = 10
+    user_id: str
 
 # -----------------------------
 # Routes
 # -----------------------------
-@app.get("/health")
+@app.get("/")
 async def health_check():
     return {"status": "healthy", "message": "Semantic Event Search API is running"}
 
 @app.post("/search")
 async def search_endpoint(request: SearchRequest):
     try:
-        return perform_search(request.query, request.n_results)
+        results = perform_search(request.query, request.user_id)
+        return {"results": results}
     except Exception as e:
+        logger.error(f"Search endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/search-history")
-async def search_history_endpoint(limit: int = 10):
-    return {"history": get_search_history(limit)}
 
 @app.get("/events")
 async def events_endpoint():
