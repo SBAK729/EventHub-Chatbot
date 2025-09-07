@@ -1,6 +1,7 @@
 fastapi
-uvicorn
-chromadb
+uvicorn[standard]
 sentence-transformers
+pinecone
+numpy
 pydantic
-python-multipart
+python-dotenv
