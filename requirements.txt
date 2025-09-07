@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 sentence-transformers
-pinecone
+chromadb
 numpy
 pydantic
 python-dotenv
