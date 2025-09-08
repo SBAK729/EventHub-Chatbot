@@ -1,0 +1,32 @@
+generate_event_content:
+  description: >
+    Generate up to 3 polished event proposals (title, description ≤500 words, and 5 tags)
+    for the following event: {event_description}.
+
+    Instructions for the LLM:
+    - If the event description mentions any guest, special guest, or speaker, 
+      Use SerperDevTool to search online (Google, LinkedIn, Wikipedia).
+      Summarize their role or profession using LLM.
+      include them in the generated description as bullet points.
+    - For each guest/speaker, provide their name and role (e.g., CEO of a company, 
+      software developer, market analyst, musician, or related relevant role).
+    - Keep the description engaging and concise.
+    - Ensure each proposal has:
+      1. A catchy title
+      2. Polished description ≤500 words
+      3. 5 relevant tags
+    - Generate up to 3 proposals for the given event description.
+
+  expected_output: >
+    JSON object with key "proposals", containing a list of up to 3 event proposals.
+    Each proposal must include:
+      - title (string)
+      - description (string ≤500 words, including bullet points for guests/speakers if any)
+      - tags (list of 5 strings)
+
+validate_event_content:
+  description: >
+    From the generated proposals, analyze and return the 2 that best align
+    with the original event description: {event_description}.
+  expected_output: >
+    JSON object with key "proposals", containing a list of the 2 best validated event proposals.

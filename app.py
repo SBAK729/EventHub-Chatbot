@@ -8,6 +8,8 @@ import time
 from typing import List, Dict
 from components.search.search import perform_search, get_all_events, initialize_embeddings, refresh_embeddings
 
+from components.Event_ai.crew import EventContentCrew
+
 # -----------------------------
 # Logging
 # -----------------------------
@@ -37,19 +39,22 @@ class SearchRequest(BaseModel):
     query: str
     user_id: str
 
+class EventInput(BaseModel):
+    description: str
+
 # -----------------------------
 # Background task for periodic refresh
 # -----------------------------
-def periodic_refresh():
-    """Refresh embeddings every 30 minutes"""
-    while True:
-        time.sleep(1800)  # 30 minutes
-        try:
-            logger.info("Starting periodic embedding refresh...")
-            refresh_embeddings()
-            logger.info("Embeddings refreshed successfully")
-        except Exception as e:
-            logger.error(f"Error during periodic refresh: {e}")
+# def periodic_refresh():
+#     """Refresh embeddings every 30 minutes"""
+#     while True:
+#         time.sleep(1800)  # 30 minutes
+#         try:
+#             logger.info("Starting periodic embedding refresh...")
+#             refresh_embeddings()
+#             logger.info("Embeddings refreshed successfully")
+#         except Exception as e:
+#             logger.error(f"Error during periodic refresh: {e}")
 
 # Start background thread on app startup
 @app.on_event("startup")
@@ -62,9 +67,9 @@ async def startup_event():
         logger.error(f"Error initializing embeddings: {e}")
     
     # Start background refresh thread
-    refresh_thread = threading.Thread(target=periodic_refresh, daemon=True)
-    refresh_thread.start()
-    logger.info("Background refresh thread started")
+    # refresh_thread = threading.Thread(target=periodic_refresh, daemon=True)
+    # refresh_thread.start()
+    # logger.info("Background refresh thread started")
 
 # -----------------------------
 # Routes
@@ -82,9 +87,13 @@ async def search_endpoint(request: SearchRequest):
         logger.error(f"Search endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/events")
-async def events_endpoint():
-    return {"events": get_all_events()}
+@app.post("/generate-event")
+def generate_event(event: EventInput):
+    crew = EventContentCrew()
+    result = crew.eventcrew().kickoff(inputs={"event_description": event.description})
+    # print(result)
+    return {"proposals": result["proposals"]}
+
 
 @app.post("/refresh-embeddings")
 async def manual_refresh():
@@ -102,4 +111,3 @@ async def manual_refresh():
 if __name__ == "__main__":
     logger.info("Starting server on http://localhost:8000")
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
-    

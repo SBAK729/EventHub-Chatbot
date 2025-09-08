@@ -5,3 +5,5 @@ chromadb
 numpy
 pydantic
 python-dotenv
+crewai
+crewai-tools
