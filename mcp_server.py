@@ -170,6 +170,3 @@ async def main():
         print(f"✗ Failed to initialize embeddings: {e}", file=sys.stderr)
     server = SimpleMCPServer()
     await server.run()
-
-if __name__ == "__main__":
-    asyncio.run(main())

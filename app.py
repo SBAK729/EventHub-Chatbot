@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import logging
+import asyncio
+from mcp_server import main as mcp_main
 import threading
 import time
 from typing import List, Dict
@@ -111,3 +113,4 @@ async def manual_refresh():
 if __name__ == "__main__":
     logger.info("Starting server on http://localhost:8000")
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    asyncio.run(mcp_main())
