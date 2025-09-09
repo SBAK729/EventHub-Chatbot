@@ -6,14 +6,14 @@ import logging
 import threading
 import time
 import asyncio
-from typing import Dict
+from typing import Dict, Optional
 
 # Import core components
 from components.search.search import perform_search, get_all_events, initialize_embeddings, refresh_embeddings
 from components.Event_ai.crew import EventContentCrew
 
 # Import MCP server
-from mcp_server import main as mcp_main
+from mcp_server import SimpleMCPServer
 
 # -----------------------------
 # Logging
@@ -39,11 +39,14 @@ app = FastAPI(
 # -----------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://grad-backend-uaju.onrender.com/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_mcp_server_instance: Optional[SimpleMCPServer] = None
+_mcp_server_started = False
 
 # -----------------------------
 # Models
@@ -60,6 +63,7 @@ class EventInput(BaseModel):
 # Global state tracking
 # -----------------------------
 _mcp_server_started = False
+_mcp_server_instance: Optional[SimpleMCPServer] = None
 
 # -----------------------------
 # Background task for periodic refresh
@@ -82,14 +86,15 @@ def periodic_refresh():
 # -----------------------------
 @app.on_event("startup")
 async def startup_event():
-    global _mcp_server_started
+    global _mcp_server_started, _mcp_server_instance
     
     logger.info("→ Starting EventHub application")
     
-    # Initialize embeddings
+    # Initialize embeddings asynchronously
     try:
         logger.info("→ Initializing embeddings...")
-        initialize_embeddings()
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, initialize_embeddings)
         logger.info("✓ Embeddings initialized successfully")
     except Exception as e:
         logger.error(f"✗ Error initializing embeddings: {e}")
@@ -103,13 +108,13 @@ async def startup_event():
     except Exception as e:
         logger.error(f"✗ Failed to start refresh thread: {e}")
 
-    # Launch MCP server in background
+    # Launch MCP server instance
     try:
         if not _mcp_server_started:
-            logger.info("→ Starting MCP server in background...")
-            asyncio.create_task(mcp_main())
+            logger.info("→ Starting MCP server instance...")
+            _mcp_server_instance = SimpleMCPServer()
             _mcp_server_started = True
-            logger.info("✓ MCP server started successfully")
+            logger.info("✓ MCP server instance ready")
     except Exception as e:
         logger.error(f"✗ Failed to start MCP server: {e}")
 
@@ -217,7 +222,6 @@ async def get_events_endpoint():
 # -----------------------------
 @app.post("/mcp/tools/call")
 async def mcp_tools_call(request: Dict):
-    """HTTP bridge for MCP tools/call"""
     global _mcp_server_instance
     
     if not _mcp_server_instance:
@@ -236,7 +240,6 @@ async def mcp_tools_call(request: Dict):
 
 @app.post("/mcp/tools/list") 
 async def mcp_tools_list():
-    """HTTP bridge for MCP tools/list"""
     global _mcp_server_instance
     
     if not _mcp_server_instance:
@@ -254,15 +257,14 @@ async def mcp_tools_list():
         logger.error(f"✗ MCP tools list error: {e}")
         raise HTTPException(status_code=500, detail=f"MCP tools list failed: {str(e)}")
 
-# -----------------------------
-# Main
-# -----------------------------
 if __name__ == "__main__":
     logger.info("→ Starting EventHub server on http://localhost:8000")
     logger.info("→ API documentation available at http://localhost:8000/docs")
     
     try:
-        uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+        port = int(os.getenv("PORT", 8000))
+        uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
     except Exception as e:
         logger.error(f"✗ Failed to start server: {e}")
         raise
+
