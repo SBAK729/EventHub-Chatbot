@@ -1,15 +1,19 @@
-# app.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import logging
-import asyncio
+from pydantic import BaseModel
 import uvicorn
+import logging
+import threading
+import time
+import asyncio
 from typing import Dict
 
-from mcp_server import main as mcp_main   # your MCP server loop
+# Import core components
 from components.search.search import perform_search, get_all_events, initialize_embeddings, refresh_embeddings
 from components.Event_ai.crew import EventContentCrew
-from pydantic import BaseModel
+
+# Import MCP server
+from mcp_server import main as mcp_main
 
 # -----------------------------
 # Logging
@@ -20,8 +24,16 @@ logging.basicConfig(level=logging.INFO)
 # -----------------------------
 # FastAPI app
 # -----------------------------
-app = FastAPI(title="Semantic Event Search API")
+app = FastAPI(
+    title="EventHub API",
+    description="Semantic Event Search, Event Creation, and AI-assisted tools API",
+    version="1.1.0",
+    docs_url="/docs"
+)
 
+# -----------------------------
+# Middleware
+# -----------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,22 +51,40 @@ class SearchRequest(BaseModel):
 
 class EventInput(BaseModel):
     description: str
+    title: str
 
 # -----------------------------
-# Startup events
+# Background task for periodic refresh
+# -----------------------------
+def periodic_refresh():
+    """Refresh embeddings every 30 minutes"""
+    while True:
+        time.sleep(1800)
+        try:
+            logger.info("Starting periodic embedding refresh...")
+            refresh_embeddings()
+            logger.info("Embeddings refreshed successfully")
+        except Exception as e:
+            logger.error(f"Error during periodic refresh: {e}")
+
+# -----------------------------
+# Startup
 # -----------------------------
 @app.on_event("startup")
 async def startup_event():
-    # Initialize embeddings
     try:
         initialize_embeddings()
         logger.info("Embeddings initialized successfully")
     except Exception as e:
         logger.error(f"Error initializing embeddings: {e}")
 
-    # Start MCP server in background
-    loop = asyncio.get_event_loop()
-    loop.create_task(mcp_main())
+    # Start background refresh thread
+    refresh_thread = threading.Thread(target=periodic_refresh, daemon=True)
+    refresh_thread.start()
+    logger.info("Background refresh thread started")
+
+    # Launch MCP server in background
+    asyncio.create_task(mcp_main())
     logger.info("MCP server started in background")
 
 # -----------------------------
@@ -62,22 +92,30 @@ async def startup_event():
 # -----------------------------
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "message": "Semantic Event Search API is running"}
+    return {"status": "healthy", "message": "EventHub API is running"}
 
 @app.post("/search")
 async def search_endpoint(request: SearchRequest):
     try:
         results = perform_search(request.query, request.user_id)
+        if not results:
+            return {"results": [], "message": "No matching events found"}
         return {"results": results}
     except Exception as e:
         logger.error(f"Search endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Search failed")
 
 @app.post("/generate-event")
 def generate_event(event: EventInput):
-    crew = EventContentCrew()
-    result = crew.eventcrew().kickoff(inputs={"event_description": event.description})
-    return {"proposals": result["proposals"]}
+    try:
+        crew = EventContentCrew()
+        result = crew.eventcrew().kickoff(
+            inputs={"event_description": event.description, "title": event.title}
+        )
+        return {"proposals": result.get("proposals", [])}
+    except Exception as e:
+        logger.error(f"Generate-event error: {e}")
+        raise HTTPException(status_code=500, detail="Event generation failed")
 
 @app.post("/refresh-embeddings")
 async def manual_refresh():
@@ -86,11 +124,11 @@ async def manual_refresh():
         return {"status": "success", "message": "Embeddings refreshed successfully"}
     except Exception as e:
         logger.error(f"Manual refresh error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Embedding refresh failed")
 
 # -----------------------------
-# Main entrypoint
+# Main
 # -----------------------------
 if __name__ == "__main__":
-    logger.info("Starting API + MCP server...")
+    logger.info("Starting EventHub server on http://localhost:8000")
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

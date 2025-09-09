@@ -229,6 +229,7 @@ def extract_filters_from_query(query: str):
 # -----------------------------
 def perform_search(query: str, user_id: str):
     n_results = 10
+    similarity_threshold = 0.2 
 
     try:
         if collection is None:
@@ -236,7 +237,7 @@ def perform_search(query: str, user_id: str):
 
         processed_query, filters = extract_filters_from_query(query)
 
-        # Base filter: only return global events (shared pool)
+        # Base filter: only return global events
         where_filter = {"user_id": "global"}
 
         # Add other filters from query parsing
@@ -248,7 +249,6 @@ def perform_search(query: str, user_id: str):
         if "category" in filters:
             other_filters.append({"category": filters["category"]})
 
-        # Combine filters
         if other_filters:
             where_filter = {
                 "$and": [
@@ -260,7 +260,7 @@ def perform_search(query: str, user_id: str):
         # Generate query embedding
         query_embedding = model.encode([processed_query]).tolist()[0]
 
-        # Perform the search - this is read-only and thread-safe
+        # Perform the search
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
@@ -277,15 +277,22 @@ def perform_search(query: str, user_id: str):
         # Convert distances to similarity scores
         scored_results = []
         for idx, metadata in enumerate(metadatas):
-            similarity_score = 1 / (1 + distances[idx]) if distances[idx] > 0 else 1.0
-            scored_results.append({
-                "metadata": metadata, 
-                "score": similarity_score
-            })
+            distance = distances[idx]
+            similarity_score = 1 / (1 + distance) if distance > 0 else 1.0
 
+            # ✅ filter by threshold
+            if similarity_score >= similarity_threshold:
+                scored_results.append({
+                    "metadata": metadata,
+                    "score": similarity_score
+                })
+
+        # If nothing meets threshold → return empty
+        if not scored_results:
+            return []
+
+        # Sort and return
         scored_results.sort(key=lambda x: x["score"], reverse=True)
-        
-        # Return only the metadata
         return [r["metadata"] for r in scored_results]
 
     except Exception as e:
