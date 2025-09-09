@@ -229,7 +229,9 @@ def extract_filters_from_query(query: str):
 # -----------------------------
 def perform_search(query: str, user_id: str):
     n_results = 10
-    similarity_threshold = 0.4 
+
+    similarity_threshold = 0.2 
+
 
     try:
         if collection is None:
