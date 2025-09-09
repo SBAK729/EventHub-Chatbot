@@ -143,10 +143,23 @@ def generate_event(event: EventInput):
         result = crew.eventcrew().kickoff(
             inputs={"event_description": event.description, "title": event.title}
         )
-        return {"proposals": result.get("proposals", [])}
+
+        # Access tasks_output safely
+        tasks = getattr(result, "tasks_output", [])
+        if tasks:
+            last_task = tasks[-1]
+            # Use vars() to convert TaskOutput object to dict
+            last_task_dict = vars(last_task) if hasattr(last_task, "__dict__") else {}
+            proposals = last_task_dict.get("json_dict", {}).get("proposals", [])
+        else:
+            proposals = getattr(result, "proposals", [])
+
+        return {"proposals": proposals}
+
     except Exception as e:
         logger.error(f"Generate-event error: {e}")
         raise HTTPException(status_code=500, detail="Event generation failed")
+
 
 @app.post("/refresh-embeddings")
 async def manual_refresh():
