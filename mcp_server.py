@@ -124,10 +124,16 @@ class SimpleMCPServer:
                 sys.stdout.flush()
 
 async def main():
+    """Run the simplified MCP server"""
     try:
         initialize_embeddings()
         print("✓ Event embeddings initialized", file=sys.stderr)
     except Exception as e:
         print(f"✗ Failed to initialize embeddings: {e}", file=sys.stderr)
     server = SimpleMCPServer()
-    await server.run_stdio()
+    await server.run()
+
+
+# Only run this if executed directly (not when uvicorn imports app.py)
+if __name__ == "__main__":
+    asyncio.run(main())
