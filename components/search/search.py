@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 # Configuration
 # -----------------------------
 PERSISTENT_DIRECTORY = "./chroma_db"
-EVENTS_API_URL = "https://your-events-api.com/events"  # Replace with your actual API
+EVENTS_API_URL = "http://localhost:3000/api/allevents"  
+
 EMBEDDINGS_CACHE_FILE = "./embeddings_cache.json"
 
 # -----------------------------
@@ -60,7 +61,7 @@ def initialize_collection():
 # -----------------------------
 # Sample events (fallback)
 # -----------------------------
-sample_events = events
+sample_events = []
 
 # -----------------------------
 # Embedding management functions
@@ -170,15 +171,16 @@ def generate_search_text(event):
 
 def fetch_events():
     # """Fetch events from API with fallback to sample data"""
-    # try:
-    #     response = requests.get(EVENTS_API_URL, timeout=10)
-    #     response.raise_for_status()
-    #     events = response.json()
-    #     logger.info(f"Fetched {len(events)} events from API")
-    #     return events
-    # except Exception as e:
-    #     logger.warning(f"Error fetching events from API, using sample data: {e}")
-    return sample_events
+    try:
+        response = requests.get(EVENTS_API_URL, timeout=10)
+        response.raise_for_status()
+        events = response.json()
+        logger.info(f"Fetched {len(events)} events from API")
+        # print("Events: ",events)
+        return events['data']
+    except Exception as e:
+        logger.warning(f"Error fetching events from API, using sample data: {e}")
+        return sample_events
 
 # -----------------------------
 # Helper: extract filters
