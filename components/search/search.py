@@ -112,7 +112,7 @@ def refresh_embeddings():
 
         # Store all events with user_id as "global" - filtering happens during search
         metadatas.append({
-            "user_id": "global",  # All events stored as global
+            "user_id": "global",  
             "_id": str(event["_id"]),
             "title": event.get("title", ""),
             "location": event.get("location") or "",
@@ -232,7 +232,7 @@ def extract_filters_from_query(query: str):
 def perform_search(query: str, user_id: str):
     n_results = 10
 
-    similarity_threshold = 0.2 
+    similarity_threshold = 0.3
 
 
     try:
