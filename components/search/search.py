@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # -----------------------------
 PERSISTENT_DIRECTORY = "./chroma_db"
-EVENTS_API_URL = "http://localhost:3000/api/allevents"  
+EVENTS_API_URL = "https://event-hub0.vercel.app/api/allevents"  
 
 EMBEDDINGS_CACHE_FILE = "./embeddings_cache.json"
 
